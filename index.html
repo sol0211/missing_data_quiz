@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Valores perdidos: cinco vidas</title>
+<style>
+  /* VOICE: aula en vivo, rápido y exigente, como el juego de AndesCargo.
+     IDEA: un tablero de concurso con cinco vidas que se apagan.
+     PICTURE: la pregunta y sus cuatro bloques de color son el juego.
+     COLOUR and TYPE: navy de la clase, verde de acierto, rojo para la vida perdida; Calibri/Segoe.
+     LAYOUT: una columna de 980px; las opciones pasan a una columna bajo 680px. */
+  :root {
+    color-scheme: dark;
+    --ink: #262626; --muted: #595959; --navy: #333f4f;
+    --green: #70ad47; --green-d: #548235; --red: #e21b3c;
+  }
+  * { box-sizing: border-box; min-width: 0; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: Calibri, "Segoe UI", system-ui, sans-serif; color: #fff;
+    background:
+      radial-gradient(900px 480px at 0% -10%, rgba(112,173,71,.35), transparent 55%),
+      radial-gradient(800px 420px at 100% 0%, rgba(19,104,206,.28), transparent 50%),
+      var(--navy);
+    overflow-x: clip;
+  }
+  button, input { font-family: inherit; }
+  #app { max-width: 980px; margin: 0 auto; padding: 18px 16px 28px; min-height: 100vh; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: rise .28s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.04; margin: 8px 0 10px; letter-spacing: -.02em; text-wrap: balance; }
+  .kicker { display: inline-block; margin: 0; background: rgba(255,255,255,.14); font-weight: 700; font-size: .92rem; padding: 4px 12px; border-radius: 999px; }
+  .lead { font-size: 1.2rem; margin: 0 0 16px; max-width: 42rem; }
+  .card { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 18px; padding: 16px; }
+  label { display: block; font-weight: 700; margin-bottom: 6px; }
+  input[type="text"] { width: 100%; max-width: 420px; border: 0; border-radius: 12px; padding: 14px; font-size: 1.15rem; color: var(--ink); background: #fff; }
+  .rules { margin: 10px 0 0; padding-left: 1.1rem; }
+  .rules li { margin: 4px 0; }
+  .aviso { margin: 12px 0 0; font-weight: 700; color: #ffd0d6; }
+  .btn { border: 0; border-radius: 14px; cursor: pointer; font-weight: 800; padding: 14px 22px; font-size: 1.15rem; min-height: 48px; }
+  .btn:focus-visible, .opt:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .btn-main { background: var(--green); color: #fff; box-shadow: 0 4px 0 var(--green-d); }
+  .btn-main:hover { filter: brightness(1.06); }
+  .btn-main:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--green-d); }
+  .btn-ghost { background: rgba(255,255,255,.14); color: #fff; }
+  .top { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .meta { font-weight: 800; font-size: 1.05rem; }
+  .right { display: flex; gap: 12px; align-items: center; }
+  .lives { display: flex; gap: 4px; }
+  .heart { width: 26px; height: 26px; transition: transform .3s, opacity .3s; }
+  .heart path { fill: var(--red); stroke: #fff; stroke-width: 1.5; }
+  .heart.lost path { fill: transparent; stroke: rgba(255,255,255,.35); }
+  .heart.break { animation: brk .5s ease; }
+  @keyframes brk { 30% { transform: scale(1.35) rotate(-10deg); } 100% { transform: scale(1); } }
+  .score { background: #fff; color: var(--navy); border-radius: 999px; padding: 6px 14px; font-weight: 800; font-size: 1.15rem; min-width: 92px; text-align: center; }
+  .score.pop { animation: pop .35s ease; }
+  @keyframes pop { 50% { transform: scale(1.12); } }
+  .pips { display: flex; gap: 4px; margin: 8px 0 10px; }
+  .pip { height: 8px; flex: 1; border-radius: 99px; background: rgba(255,255,255,.2); }
+  .pip.ok { background: #a9d18e; } .pip.no { background: #ff8a9a; } .pip.now { background: #fff; }
+  .timer-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .clock { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: var(--navy); font-weight: 800; font-size: 1.35rem; flex: none; }
+  .clock.danger { background: var(--red); color: #fff; animation: pulse .6s ease infinite; }
+  @keyframes pulse { 50% { transform: scale(1.06); } }
+  .track { flex: 1; height: 14px; border-radius: 99px; background: rgba(255,255,255,.2); overflow: hidden; }
+  .bar { height: 100%; width: 100%; background: var(--green); transform-origin: left center; }
+  .bar.danger { background: var(--red); }
+  .tag { display: inline-block; font-size: .85rem; font-weight: 800; color: var(--green-d); margin-bottom: 6px; }
+  .question { background: #fff; color: var(--navy); border-radius: 18px; padding: 18px; min-height: 108px; margin-bottom: 12px; font-size: clamp(1.15rem, 2.3vw, 1.55rem); font-weight: 800; line-height: 1.28; }
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+  @media (max-width: 680px) { .grid { grid-template-columns: minmax(0,1fr); } }
+  .opt { position: relative; border: 0; border-radius: 14px; color: #fff; text-align: left; cursor: pointer; min-height: 88px; padding: 14px 14px 14px 56px; font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
+  .opt .shape { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; display: grid; place-items: center; background: #fff; color: var(--navy); border-radius: 6px; font-weight: 800; }
+  .opt[data-i="0"] { background: #e21b3c; } .opt[data-i="1"] { background: #1368ce; }
+  .opt[data-i="2"] { background: #ffa602; color: #3a2a00; } .opt[data-i="3"] { background: #26890c; }
+  .opt:hover:not(:disabled) { filter: brightness(1.08); }
+  .opt:disabled { cursor: default; }
+  .opt.dim { filter: grayscale(.4) brightness(.65); }
+  .opt.good { box-shadow: inset 0 0 0 4px #fff; filter: none; }
+  .opt.bad { box-shadow: inset 0 0 0 4px #3a1020; animation: shake .35s linear; }
+  @keyframes shake { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+  .feedback { margin-top: 12px; background: #fff; color: var(--navy); border-radius: 16px; padding: 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: start; }
+  .feedback b.label { font-size: 1.3rem; }
+  .delta { font-size: 1.3rem; font-weight: 800; white-space: nowrap; }
+  .delta.plus { color: var(--green-d); } .delta.minus { color: #b94b5c; } .delta.zero { color: var(--muted); }
+  .why { margin: 6px 0 0; color: #3b4656; font-weight: 600; font-size: 1.02rem; line-height: 1.4; }
+  .fb-actions { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .fb-actions .btn { background: var(--navy); color: #fff; padding: 10px 18px; font-size: 1rem; }
+  .auto { color: var(--muted); font-size: .95rem; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .big-score { font-size: clamp(3rem, 8vw, 5rem); font-weight: 800; line-height: 1; margin: 8px 0; }
+  .review { margin-top: 14px; }
+  .item { background: rgba(255,255,255,.08); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+  .item .q { font-weight: 800; }
+  .item .w { color: #dfe6ef; margin-top: 4px; }
+  .ok { color: #c6e0b4; font-weight: 700; } .no { color: #ffc1c8; font-weight: 700; }
+  .count { position: fixed; inset: 0; display: none; place-items: center; background: rgba(51,63,79,.55); font-size: 8rem; font-weight: 800; }
+  .count.show { display: grid; animation: rise .2s ease; }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="home" class="screen active">
+    <p class="kicker">Data Analysis Advanced · Sesión 1 · Valores perdidos</p>
+    <h1>¿MCAR, MAR o MNAR? Cinco vidas para decidir</h1>
+    <p class="lead">Veinte preguntas sobre los casos del crédito y de la diabetes. Cada una pide aplicar la clase, no recordarla: el largo de las respuestas no delata cuál es la correcta.</p>
+    <div class="card">
+      <label for="apellido">Tu apellido</label>
+      <input id="apellido" type="text" maxlength="40" placeholder="Escribe tu apellido" autocomplete="family-name">
+      <p class="aviso" id="aviso" hidden></p>
+      <ul class="rules">
+        <li>Empiezas con 5 vidas. Un error o una pregunta sin responder te quita una.</li>
+        <li>Sin vidas, el juego termina ahí, aunque falten preguntas.</li>
+        <li>Cada pregunta dura 30 segundos.</li>
+        <li>Acierto: de 500 a 1000 puntos, según lo rápido que marques.</li>
+        <li>Después de cada respuesta aparece el porqué. Léelo: la siguiente pregunta lo usa.</li>
+        <li>Cada apellido juega una sola vez en este navegador.</li>
+      </ul>
+    </div>
+    <p class="row" style="margin-top:16px;">
+      <button type="button" class="btn btn-main" id="start">Jugar</button>
+    </p>
+  </section>
+
+  <section id="play" class="screen">
+    <div class="top">
+      <div class="meta" id="qcount">1 / 20</div>
+      <div class="right">
+        <div class="lives" id="lives" aria-label="Vidas"></div>
+        <div class="score" id="score">0</div>
+      </div>
+    </div>
+    <div class="pips" id="pips"></div>
+    <div class="timer-row">
+      <div class="clock" id="clock">30</div>
+      <div class="track" aria-hidden="true"><div class="bar" id="bar"></div></div>
+    </div>
+    <div class="question"><span class="tag" id="tag"></span><div id="question"></div></div>
+    <div class="grid" id="options"></div>
+    <div id="feedback" aria-live="polite"></div>
+  </section>
+
+  <section id="end" class="screen">
+    <p class="kicker" id="end-name">Valores perdidos</p>
+    <h1 id="end-title">Cierre</h1>
+    <div class="big-score" id="end-score">0</div>
+    <p class="lead" id="end-detail"></p>
+    <p class="row">
+      <button type="button" class="btn btn-main" id="again">Volver al inicio</button>
+      <button type="button" class="btn btn-ghost" id="toggle-review">Ver cómo te fue</button>
+    </p>
+    <div class="review" id="review" hidden></div>
+  </section>
+</div>
+<div class="count" id="count" aria-live="assertive"></div>
+<script>
+{
+  const BANK = [
+    { t: "Antes de probar", q: "En el crédito, una persona de 22 años declara 123 años de trabajo. ¿Qué se hace antes de correr las pruebas?",
+      o: ["Se pasa a vacío: no es un dato extremo, es un valor imposible.",
+          "Se deja como está: es un outlier real y quitarlo sesga el promedio.",
+          "Se reemplaza por 50, el tope de la regla, para no perder la fila.",
+          "Se borra la fila completa: un error invalida todas sus columnas."],
+      w: "Un outlier es raro pero posible. 123 años de trabajo a los 22 no lo es. Lo imposible se anula antes de probar, y la fila conserva sus otras columnas." },
+    { t: "Mecanismos", q: "Un corte del servidor borró la tasa en solicitudes elegidas al azar, sin importar quién las pidió. ¿Qué mecanismo es?",
+      o: ["MCAR: que falte no depende de lo observado ni del valor.",
+          "MAR: que falte depende del ingreso, que sí está en la tabla.",
+          "MNAR: que falte depende de la tasa misma, que no se ve.",
+          "Ninguno: si lo causó el sistema, el hueco no tiene mecanismo."],
+      w: "MCAR es que la probabilidad de faltar es la misma para todos. Es el único caso en que borrar filas no sesga: solo se pierde muestra." },
+    { t: "t de Welch", q: "Quien deja en blanco la antigüedad gana 44,411 en promedio; quien la declara, 66,688. t = −17.07. ¿Qué se concluye?",
+      o: ["No es MCAR: el hueco depende del ingreso, una variable observada.",
+          "Es MNAR: la diferencia de ingreso prueba que falta por su valor.",
+          "Es MCAR: el ingreso no es la antigüedad, así que no la explica.",
+          "Nada: la t de Welch exige que los dos grupos tengan igual n."],
+      w: "Si una X observada separa a quien tiene el hueco, se rechaza MCAR y queda, como mínimo, MAR. MNAR no se prueba con la tabla." },
+    { t: "Leer un p", q: "La tasa contra el ingreso da p = 0.630. Un compañero escribe: «queda demostrado que es MCAR». ¿Qué le corriges?",
+      o: ["No rechazar H0 no demuestra MCAR: solo no hubo patrón ahí.",
+          "Nada: con p mayor que 0.05 la hipótesis nula queda demostrada.",
+          "Que con p = 0.630 se rechaza H0, porque p es mayor que α.",
+          "Que faltó Shapiro: con Shapiro sí se puede demostrar el MCAR."],
+      w: "Un p grande dice que no se encontró diferencia en esa variable. El hueco puede depender de otra X, de algo no medido o del propio valor." },
+    { t: "Qué prueba toca", q: "Con 32,581 filas, Shapiro rechaza la normalidad del ingreso. ¿Eso obliga a descartar la t de Welch?",
+      o: ["No: con n tan grande Shapiro rechaza casi todo; Welch sirve.",
+          "Sí: sin normalidad la t de Welch nunca puede usarse en estos datos.",
+          "Sí: primero hay que recortar el archivo hasta que Shapiro no rechace.",
+          "No: Shapiro solo se aplica a variables categóricas, como la letra."],
+      w: "Con miles de filas, el teorema central del límite sostiene la t. Shapiro detecta desvíos mínimos y no elige la prueba." },
+    { t: "t de Welch", q: "Faltan 3,116 tasas y hay 29,465 completas. Alguien propone sacar al azar 3,116 completas para igualar los grupos. ¿Qué dices?",
+      o: ["No hace falta: Welch usa los dos n y no supone varianzas iguales.",
+          "Es obligatorio: la t solo funciona con grupos del mismo tamaño.",
+          "Conviene: así el p sale más chico y la prueba es más exigente.",
+          "Mejor duplicar las 3,116 faltantes hasta llegar a 29,465."],
+      w: "Recortar bota información y baja la potencia. Welch ya corrige tamaños y varianzas distintos en el error estándar." },
+    { t: "Mann-Whitney", q: "El ingreso tiene sesgo 35. La pregunta es si quien no tiene tasa queda sistemáticamente más arriba en ingreso. ¿Qué prueba responde eso?",
+      o: ["Mann-Whitney: compara el orden de los dos grupos, no sus promedios.",
+          "Chi-cuadrado: compara el porcentaje de huecos en cada ingreso.",
+          "t de Student: con varianzas iguales el sesgo deja de importar.",
+          "Shapiro: si el ingreso no es normal, eso ya responde la pregunta."],
+      w: "Mann-Whitney mira si un grupo tiende a quedar arriba. En el crédito dio p = 0.72, y Welch p = 0.63: las dos dicen lo mismo por caminos distintos." },
+    { t: "Imputar con criterio", q: "La letra no explica el hueco de la tasa (p = 0.106). ¿Se puede imputar a todos con el 11%, la media del archivo?",
+      o: ["No: va de 7.3% en A a 20.3% en G; va la mediana de su letra.",
+          "Sí: si la letra no explica el hueco, tampoco explica el valor.",
+          "Sí: la media del archivo es el mejor número cuando el hueco es MCAR.",
+          "No: hay que borrar las 3,116 filas, porque imputar siempre sesga."],
+      w: "El mecanismo dice si se puede imputar; la variable dice con qué. La letra fija el precio aunque no explique el hueco." },
+    { t: "Chi-cuadrado", q: "En la antigüedad, el chi-cuadrado contra la letra da p = 10⁻¹³ con esperado mínimo 1.8. ¿Cómo se lee?",
+      o: ["No como prueba fina: se confirma con permutación o Fisher.",
+          "Como la más fuerte: un p tan chico compensa el esperado bajo.",
+          "Se descarta la letra: con esperado bajo 5 la variable no sirve.",
+          "Se baja α a 0.01, y con eso el esperado deja de importar."],
+      w: "Bajo 5, la aproximación del chi-cuadrado falla. En el notebook la permutación dio p = 0.0005 y confirmó el resultado." },
+    { t: "Tamaño de efecto", q: "La logística del hueco de la tasa da p = 0.035, pero AUC = 0.512 y pseudo-R² = 0.0014. ¿Qué concluyes?",
+      o: ["Significativo sin patrón útil: en la práctica, compatible con MCAR.",
+          "Es MAR: un p menor que 0.05 obliga a imputar con todas las covariables.",
+          "Es MNAR: el modelo no predice porque el hueco depende del valor.",
+          "El modelo está mal: un AUC bajo con un p chico es imposible."],
+      w: "Con 32 mil filas, efectos minúsculos salen significativos. Un AUC de 0.51 es tirar una moneda: el tamaño de efecto decide." },
+    { t: "Hueco informativo", q: "Ajustando por ingreso, letra y vivienda, tener vacía la antigüedad multiplica los odds de mora por 1.71. ¿Qué se hace con ese hueco?",
+      o: ["Se imputa y se guarda una marca de que faltaba: el hueco informa.",
+          "Se borran esas 897 filas, porque su mora alta ensucia el modelo.",
+          "Se imputa con la mediana y se olvida que faltaba: el valor ya está.",
+          "Se imputa con 0 años: quien no declara es quien no trabaja."],
+      w: "El hueco trae riesgo que lo observado no explica, y la marca conserva esa señal. Imputar 0 no se sostiene: 4,105 personas sí escribieron 0." },
+    { t: "MNAR", q: "¿Por qué no existe un estadístico que pruebe MNAR?",
+      o: ["Porque depende del valor que falta, que no está en la tabla.",
+          "Porque MNAR solo aparece en variables categóricas, sin promedio.",
+          "Porque haría falta más de 100 mil filas para tener potencia.",
+          "Porque MNAR y MCAR son lo mismo cuando no se rechaza H0."],
+      w: "MNAR se argumenta con evidencia indirecta y se somete a sensibilidad: se mueve lo imputado y se mira si cambia la conclusión." },
+    { t: "MNAR", q: "La letra explica el 90% de la tasa, y el porcentaje sin tasa es parecido en todas las letras. ¿Qué dice eso de un posible MNAR en la tasa?",
+      o: ["Improbable: si faltara por su valor, faltaría distinto por letra.",
+          "Que está probado: un R² de 0.90 descarta el MNAR con certeza.",
+          "Que es seguro: si la letra explica la tasa, el hueco es MNAR.",
+          "Nada: el R² mide la tasa, y el hueco es una variable distinta."],
+      w: "La letra es casi la tasa. Si el hueco no se mueve con la letra, es difícil que se mueva con la tasa. Es un argumento, no una prueba: queda el 10% sin explicar." },
+    { t: "Sensibilidad", q: "Se mueve la antigüedad imputada de −3 a +3 años, y el odds ratio del hueco queda entre 1.68 y 1.73. ¿Qué significa?",
+      o: ["Que la conclusión no depende de suponer MAR: resiste un MNAR.",
+          "Que el hueco es MCAR, porque el odds ratio casi no cambia.",
+          "Que la imputación falló: debía cambiar mucho con cada δ.",
+          "Que conviene quedarse con δ = +3, porque da el OR más alto."],
+      w: "Si la conclusión se mantiene al mover lo imputado, el supuesto MAR no es el que la decide. Eso es lo que se puede hacer con MNAR." },
+    { t: "Diabetes", q: "El archivo de diabetes no trae NA, pero 374 pacientes tienen insulina 0 y 111 tienen 0 embarazos. ¿Qué pasa a vacío?",
+      o: ["La insulina 0, que no es medición; cero embarazos sí es un dato.",
+          "Los dos: todo 0 en una columna del archivo es un dato que falta.",
+          "Ninguno: si el archivo no trae NA, no hay huecos que tratar.",
+          "Solo los embarazos 0, porque es raro no haber tenido ninguno."],
+      w: "Nadie vive con insulina 0: ese cero significa «no se midió». Cero embarazos sí es posible. El hueco se define por lo que el dato puede valer." },
+    { t: "Diabetes", q: "La insulina falta en el 39% de las menores de 30 y en el 63% de las de 40 o más, donde la insulina medida es más alta. ¿Qué pasa con la mediana global, 125?",
+      o: ["Subestima a las mayores: el hueco es MAR por edad, y hay que usarla.",
+          "Es correcta: como el diagnóstico no explica el hueco, sirve para todas.",
+          "Sobreestima a las mayores, porque ellas casi no tienen insulina.",
+          "Da igual el número: con 48.7% de huecos ningún método sirve."],
+      w: "Por tramo, la mediana medida es 105, 140 y 156. Un solo 125 le queda chico a una paciente de 40 años." },
+    { t: "MICE", q: "Al imputar la insulina con MICE en su escala original salen valores negativos. ¿Cuál es la mejor salida?",
+      o: ["Imputar en logaritmo y volver con exp: siempre sale positiva.",
+          "Recortar en 0: los negativos pasan a 0 y la media no se altera.",
+          "Reemplazar los negativos por 125, la mediana de lo medido.",
+          "Quitar el sorteo: la recta exacta conserva la correlación medida."],
+      w: "Recortar sube solo los valores de abajo e infla la media. Sin sorteo, la correlación con la glucosa sube a 0.70. En log, la glucosa con insulina queda en 0.57, casi el 0.58 medido." },
+    { t: "KNN", q: "KNN sin estandarizar sube la correlación glucosa–insulina a 0.63, por encima del 0.58 medido. ¿Por qué?",
+      o: ["La glucosa, en cifras grandes, decide sola quiénes son vecinas.",
+          "Porque KNN siempre aumenta las correlaciones, se escale o no.",
+          "Porque k = 5 es poco: con k = 50 la correlación vuelve a 0.58.",
+          "Porque la insulina pesa más en la distancia de quien no la tiene."],
+      w: "Sin escalar, la insulina se copia de pacientes con la misma glucosa, y eso infla la relación. La insulina faltante no entra en la distancia. Estandarizado, queda en 0.60." },
+    { t: "Fuga", q: "El diagnóstico no entra al imputador de la diabetes. ¿Cuál es la razón correcta?",
+      o: ["Es lo que se predice después: si entra, la respuesta se filtra.",
+          "No explicó el hueco (p = 0.290), así que no ayuda a estimar el valor.",
+          "Es binaria, y MICE no acepta columnas que tienen solo dos valores.",
+          "Está completa, y una columna completa no sirve para imputar."],
+      w: "Para imputar importa si una variable predice el valor, no el hueco, y el diagnóstico sí predice la insulina. Se deja fuera para no filtrar la respuesta." },
+    { t: "Patrón", q: "Las 227 pacientes sin pliegue tampoco tienen insulina, y ninguna tiene el pliegue vacío con la insulina medida. ¿Qué sugiere ese patrón?",
+      o: ["Un mismo mecanismo: a esas pacientes no se les hizo esa parte del examen.",
+          "Que el pliegue es MCAR y la insulina MNAR, porque faltan cantidades distintas.",
+          "Que hay que borrar el pliegue: si siempre falta con la insulina, sobra.",
+          "Casualidad: con 768 filas, los huecos coinciden por puro azar."],
+      w: "Los dos huecos van juntos. Por eso el pliegue y la insulina responden igual a las pruebas: los decide quién recibió la evaluación completa." }
+  ];
+
+  const LIVES = 5, totalSec = 30, AUTO_MS = 12000;
+  const LETTERS = ["A", "B", "C", "D"];
+  const STORE = "daa-s1-valores-perdidos";
+  let name = "", score = 0, index = 0, lives = LIVES, round = null, raf = 0, startedAt = 0, locked = false, advanceTimer = 0, log = [], audioCtx = null;
+  const $ = (id) => document.getElementById(id);
+  const home = $("home"), play = $("play"), end = $("end"), count = $("count");
+  const HEART = '<svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>';
+
+  function show(el) { [home, play, end].forEach((s) => s.classList.remove("active")); el.classList.add("active"); window.scrollTo(0, 0); }
+
+  function tone(freq, dur, type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type || "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.07, audioCtx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+      o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
+    } catch (e) {}
+  }
+
+  const surnameKey = (v) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  function playedKeys() {
+    try { const l = JSON.parse(localStorage.getItem(STORE) || "[]"); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+  }
+  function remember(key) {
+    try { const l = playedKeys(); if (!l.includes(key)) l.push(key); localStorage.setItem(STORE, JSON.stringify(l)); } catch (e) {}
+  }
+  function say(text) { const a = $("aviso"); a.hidden = !text; a.textContent = text || ""; }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function paintLives(breakOne) {
+    const box = $("lives");
+    box.innerHTML = Array.from({ length: LIVES }, () => HEART).join("");
+    box.setAttribute("aria-label", lives + " vidas");
+    box.querySelectorAll(".heart").forEach((h, i) => {
+      if (i >= lives) h.classList.add("lost");
+      if (breakOne && i === lives) h.classList.add("break");
+    });
+  }
+
+  function begin() {
+    const raw = $("apellido").value.replace(/\s+/g, " ").trim();
+    if (!raw) { say("Escribe tu apellido para entrar."); $("apellido").focus(); return; }
+    const key = surnameKey(raw);
+    if (playedKeys().includes(key)) { say("Ese apellido ya jugó. Cada apellido entra una sola vez."); return; }
+    remember(key); say("");
+    name = raw; score = 0; index = 0; lives = LIVES; log = [];
+    tone(523, 0.12);
+    countdown(() => { show(play); ask(); });
+  }
+
+  function countdown(done) {
+    let n = 3;
+    count.classList.add("show"); count.textContent = "3"; tone(440, 0.08);
+    const t = setInterval(() => {
+      n -= 1;
+      if (n <= 0) { clearInterval(t); count.classList.remove("show"); done(); }
+      else { count.textContent = String(n); tone(440, 0.08); }
+    }, 650);
+  }
+
+  function shuffle(options) {
+    const items = options.map((text, i) => ({ text, ok: i === 0 }));
+    for (let i = items.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [items[i], items[j]] = [items[j], items[i]]; }
+    return items;
+  }
+
+  function ask() {
+    locked = false; clearTimeout(advanceTimer); cancelAnimationFrame(raf);
+    const item = BANK[index];
+    round = shuffle(item.o);
+    $("qcount").textContent = (index + 1) + " / " + BANK.length;
+    $("tag").textContent = item.t;
+    $("question").textContent = item.q;
+    $("feedback").innerHTML = "";
+    paintScore(false); paintLives(false);
+    $("pips").innerHTML = BANK.map((_, i) => {
+      const r = log[i];
+      const cls = r ? (r.hit ? "ok" : "no") : i === index ? "now" : "";
+      return '<div class="pip ' + cls + '"></div>';
+    }).join("");
+    $("options").innerHTML = round.map((opt, i) =>
+      '<button type="button" class="opt" data-i="' + i + '"><span class="shape" aria-hidden="true">' + LETTERS[i] + "</span>" + esc(opt.text) + "</button>").join("");
+    $("options").querySelectorAll(".opt").forEach((b, i) => b.addEventListener("click", () => finish(i)));
+    startedAt = performance.now();
+    raf = requestAnimationFrame(tick);
+  }
+
+  const timeLeft = (now) => totalSec - (now - startedAt) / 1000;
+  function tick(now) {
+    const left = timeLeft(now);
+    if (left <= 0) { paintTime(0); finish(null); return; }
+    paintTime(left); raf = requestAnimationFrame(tick);
+  }
+  function paintTime(left) {
+    const clock = $("clock"), bar = $("bar");
+    clock.textContent = String(Math.ceil(Math.max(0, left)));
+    clock.classList.toggle("danger", left <= 5 && left > 0);
+    bar.style.transform = "scaleX(" + Math.max(0, left) / totalSec + ")";
+    bar.classList.toggle("danger", left <= 5);
+  }
+
+  function finish(picked) {
+    if (locked) return;
+    locked = true; cancelAnimationFrame(raf);
+    const left = picked === null ? 0 : Math.max(0, timeLeft(performance.now()));
+    const correctIndex = round.findIndex((o) => o.ok);
+    const hit = picked !== null && round[picked].ok;
+    let delta = 0, label;
+    if (hit) {
+      delta = Math.round(500 + 500 * (left / totalSec)); label = "Correcto";
+      tone(523, 0.09); setTimeout(() => tone(659, 0.14), 90);
+    } else {
+      lives -= 1; label = picked === null ? "Se acabó el tiempo" : "Incorrecto";
+      tone(164, 0.22, "sawtooth");
+    }
+    score += delta;
+    paintScore(true); paintLives(!hit);
+    document.querySelectorAll(".opt").forEach((b, i) => {
+      b.disabled = true;
+      if (i === correctIndex) b.classList.add("good");
+      else if (i === picked) b.classList.add("bad");
+      else b.classList.add("dim");
+    });
+    log.push({ q: BANK[index].q, okText: round[correctIndex].text, picked: picked === null ? "Sin respuesta" : round[picked].text, hit, missed: picked === null, delta, w: BANK[index].w });
+    const over = lives <= 0, last = index + 1 >= BANK.length;
+    const cls = delta > 0 ? "plus" : "minus";
+    const deltaTxt = hit ? "+" + delta : "−1 vida";
+    const btnTxt = over ? "Ver el resultado" : last ? "Terminar" : "Siguiente";
+    $("feedback").innerHTML =
+      '<div class="feedback"><div><b class="label">' + label + '</b><p class="why">' + esc(BANK[index].w) + "</p></div>" +
+      '<div class="delta ' + cls + '">' + deltaTxt + "</div>" +
+      '<div class="fb-actions"><button type="button" class="btn" id="next">' + btnTxt + '</button><span class="auto">Sigue solo en 12 segundos.</span></div></div>';
+    $("next").addEventListener("click", next);
+    $("next").focus({ preventScroll: true });
+    $("feedback").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    advanceTimer = setTimeout(next, AUTO_MS);
+  }
+
+  function paintScore(pop) {
+    const el = $("score"); el.textContent = String(score);
+    if (pop) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+  }
+
+  function next() {
+    clearTimeout(advanceTimer);
+    if (!play.classList.contains("active")) return;
+    index += 1;
+    if (lives <= 0 || index >= BANK.length) finishGame(); else ask();
+  }
+
+  function finishGame() {
+    show(end);
+    const hits = log.filter((r) => r.hit).length;
+    const misses = log.filter((r) => r.missed).length;
+    const wrong = log.length - hits - misses;
+    $("end-name").textContent = name;
+    $("end-score").textContent = String(score);
+    let title;
+    if (lives <= 0) { title = "Sin vidas en la pregunta " + log.length + " de " + BANK.length; tone(196, 0.35, "triangle"); }
+    else {
+      tone(523, 0.1); setTimeout(() => tone(659, 0.1), 110); setTimeout(() => tone(784, 0.18), 220);
+      title = hits >= 18 ? "Diagnóstico impecable: sabes de qué depende cada hueco"
+        : hits >= 14 ? "Llegaste al final con criterio"
+        : "Llegaste al final, pero con dudas";
+    }
+    $("end-title").textContent = title;
+    $("end-detail").textContent = hits + " aciertos · " + wrong + " errores · " + misses + " sin responder · " + Math.max(0, lives) + " vidas al final";
+    const review = $("review");
+    review.hidden = true; $("toggle-review").textContent = "Ver cómo te fue";
+    review.innerHTML = log.map((r, i) => {
+      const mark = r.hit ? "Acierto (+" + r.delta + ")" : r.missed ? "Tiempo (−1 vida)" : "Error (−1 vida)";
+      return '<div class="item"><div class="q">' + (i + 1) + ". " + esc(r.q) + "</div>" +
+        '<div class="' + (r.hit ? "ok" : "no") + '">' + mark + "</div>" +
+        (r.hit ? "" : "<div>Marcaste: " + esc(r.picked) + "</div><div>Era: " + esc(r.okText) + "</div>") +
+        '<div class="w">' + esc(r.w) + "</div></div>";
+    }).join("");
+  }
+
+  $("start").addEventListener("click", begin);
+  $("apellido").addEventListener("keydown", (ev) => { if (ev.key === "Enter") begin(); });
+  $("again").addEventListener("click", () => { show(home); say(""); $("apellido").value = ""; });
+  $("toggle-review").addEventListener("click", function () {
+    const box = $("review"); box.hidden = !box.hidden;
+    this.textContent = box.hidden ? "Ver cómo te fue" : "Ocultar el detalle";
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (!play.classList.contains("active") || locked) return;
+    const n = { "1": 0, "2": 1, "3": 2, "4": 3 }[ev.key];
+    if (n === undefined) return;
+    const btn = document.querySelector('.opt[data-i="' + n + '"]');
+    if (btn) btn.click();
+  });
+}
+</script>
+</body>
+</html>
